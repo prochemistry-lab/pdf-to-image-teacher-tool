@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to JPG Converter - Premium Tool</title>
+    <meta name="description" content="Convert your PDF files to high-quality JPG images instantly in your browser. Secure, fast, and free.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <script>
+        // PDF.js worker setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.3) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.3) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.3) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.05em;
+        }
+
+        p.subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Upload Area */
+        .upload-zone {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 2px dashed var(--glass-border);
+            border-radius: 24px;
+            padding: 4rem 2rem;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .upload-zone.drag-over {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .icon-upload {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .upload-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtext {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* Controls & Progress */
+        .controls-area {
+            display: none;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            animation: slideUp 0.5s ease-out;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.5);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.6);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.5);
+        }
+
+        .btn-download:hover {
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.6);
+        }
+
+        /* Gallery Grid */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .gallery-item {
+            background: var(--card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
+            transition: transform 0.2s ease;
+        }
+
+        .gallery-item:hover {
+            transform: translateY(-4px);
+        }
+
+        .gallery-image {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1.4; /* A4-ish ratio */
+            object-fit: contain;
+            background: #cbd5e1;
+        }
+
+        .gallery-footer {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--glass-border);
+            background: rgba(15, 23, 42, 0.4);
+        }
+
+        .page-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            border-radius: 8px;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            display: none;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>PDF to JPG</h1>
+            <p class="subtitle">Transform your documents into high-resolution images instantly. Local processing ensures your files never leave your device.</p>
+        </header>
+
+        <div class="upload-zone" id="dropZone">
+            <svg class="icon-upload" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <div class="upload-text">Drop your PDF here</div>
+            <div class="upload-subtext">or click to browse files</div>
+            <input type="file" id="fileInput" accept="application/pdf">
+        </div>
+
+        <div class="controls-area" id="controlsArea">
+            <div class="file-info">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--primary);">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span class="file-name" id="fileName">document.pdf</span>
+            </div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <span id="statusText" style="color: var(--text-secondary); font-size: 0.9rem;">Ready</span>
+                <div class="spinner" id="loadingSpinner"></div>
+                <button class="btn btn-download" id="downloadAllBtn" disabled onclick="downloadAll()">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download All (ZIP)
+                </button>
+            </div>
+        </div>
+
+        <div class="gallery" id="gallery"></div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const controlsArea = document.getElementById('controlsArea');
+        const fileNameDisplay = document.getElementById('fileName');
+        const gallery = document.getElementById('gallery');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const statusText = document.getElementById('statusText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        let currentPDF = null;
+        let generatedImages = []; // Stores objects { page: 1, blob: ... }
+
+        // Event Listeners
+        fileInput.addEventListener('change', handleFileSelect);
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect({ target: fileInput });
+            }
+        });
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                alert('Please select a valid PDF file.');
+                return;
+            }
+
+            // Reset UI
+            gallery.innerHTML = '';
+            generatedImages = [];
+            controlsArea.style.display = 'flex';
+            fileNameDisplay.textContent = file.name;
+            downloadAllBtn.disabled = true;
+            statusText.textContent = 'Processing PDF...';
+            loadingSpinner.style.display = 'block';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                currentPDF = pdf;
+                
+                statusText.textContent = `Found ${pdf.numPages} pages. Rendering...`;
+                
+                await renderPages(pdf);
+
+                statusText.textContent = 'Conversion complete!';
+                downloadAllBtn.disabled = false;
+            } catch (error) {
+                console.error(error);
+                statusText.textContent = 'Error loading PDF.';
+                alert('Failed to load PDF. It might be password protected or corrupted.');
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        }
+
+        async function renderPages(pdf) {
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                
+                // High quality scale
+                const viewport = page.getViewport({ scale: 2.0 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                // Convert to JPG blob
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+                generatedImages.push({ page: pageNum, blob: blob });
+
+                // Create UI Element
+                createGalleryItem(pageNum, canvas.toDataURL('image/jpeg', 0.85), blob);
+            }
+        }
+
+        function createGalleryItem(pageNum, dataUrl, blob) {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            item.style.animationDelay = `${pageNum * 0.1}s`;
+            
+            item.innerHTML = `
+                <img src="${dataUrl}" class="gallery-image" alt="Page ${pageNum}">
+                <div class="gallery-footer">
+                    <span class="page-label">Page ${pageNum}</span>
+                    <button class="btn btn-sm" onclick="downloadSingle(${pageNum})">Download</button>
+                </div>
+            `;
+            gallery.appendChild(item);
+        }
+
+        window.downloadSingle = (pageNum) => {
+            const imgParams = generatedImages.find(img => img.page === pageNum);
+            if (imgParams) {
+                saveAs(imgParams.blob, `page-${pageNum}.jpg`);
+            }
+        };
+
+        window.downloadAll = () => {
+            const zip = new JSZip();
+            const folder = zip.folder("pdf-images");
+            
+            generatedImages.forEach(img => {
+                folder.file(`page-${img.page}.jpg`, img.blob);
+            });
+
+            statusText.textContent = 'Zipping files...';
+            loadingSpinner.style.display = 'block';
+
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                saveAs(content, "pdf-images.zip");
+                statusText.textContent = 'Download started.';
+                loadingSpinner.style.display = 'none';
+            });
+        };
+    </script>
+</body>
+</html>
